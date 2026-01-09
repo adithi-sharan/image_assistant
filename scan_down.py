@@ -112,7 +112,7 @@ if __name__ == "__main__":
 
         raw_blur = blur_score_laplacian(img)
         blur = normalize_blur(raw_blur)
-        tag = "BLURRY" if blur < 0.25 else ""
+        tag = "BLURRY" if blur < 0.20 else ""
 
         print(
             f"{count:05d} {meta.path.name} "
