@@ -10,11 +10,9 @@ def blur_score_laplacian(pil_img: Image.Image, crop: float = 0.6) -> float:
     # PIL -> OpenCV grayscale
     img = np.array(pil_img)  # RGB
     h, w = img.shape[:2]
-
     cw, ch = int(w * crop), int(h * crop)
     x0 = (w - cw) // 2
     y0 = (h - ch) // 2
-
     center = img[y0:y0+ch, x0:x0+cw]
     gray = cv2.cvtColor(center, cv2.COLOR_RGB2GRAY)
     return float(cv2.Laplacian(gray, cv2.CV_64F).var())

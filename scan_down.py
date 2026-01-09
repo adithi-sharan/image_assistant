@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Generator, Iterable, Optional, Tuple
 from PIL import Image, ImageOps
-
+from exposure import exposure_score
 from blur import blur_score_laplacian, normalize_blur
 
 
@@ -110,16 +110,26 @@ if __name__ == "__main__":
     for img, meta in scan_folder_downsample(in_dir, long_edge=args.long_edge):
         count += 1
 
+        # BLUR 
         raw_blur = blur_score_laplacian(img)
         blur = normalize_blur(raw_blur)
-        tag = "BLURRY" if blur < 0.20 else ""
+        # EXPOSURE
+        exp, exp_tags = exposure_score(img)
 
+        # TAGS  for images with issues
+        tags = []
+        if blur < 0.15:
+            tags.append("BLURRY")
+        tags.extend(exp_tags)
+
+        # OVERALL SCORE
+        overall = 0.55 * blur + 0.45 * exp
         print(
             f"{count:05d} {meta.path.name} "
-            f"{meta.original_size} -> {meta.resized_size} "
-            f"blur_raw={raw_blur:.1f} blur={blur:.2f} {tag}"
+            f"blur={blur:.2f} exp={exp:.2f} overall={overall:.2f} "
+            f"{' '.join(tags)}"
         )
-
+        #SAVE PREVIEW   doesnt always happen
         if args.save_previews:
             rel = meta.path.relative_to(in_dir)
             out_path = (preview_dir / rel).with_suffix(".jpg")
@@ -127,6 +137,4 @@ if __name__ == "__main__":
 
         if args.max and count >= args.max:
             break
-
-
     print(f"Done. Processed {count} images.")
