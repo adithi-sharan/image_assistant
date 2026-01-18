@@ -7,6 +7,7 @@ from typing import Generator, Iterable, Optional, Tuple
 from PIL import Image, ImageOps
 from exposure import exposure_score
 from blur import blur_score_laplacian, normalize_blur
+import csv 
 
 
 VALID_EXTS = {".jpg", ".jpeg"}
@@ -101,12 +102,16 @@ if __name__ == "__main__":
     parser.add_argument("--save-previews", action="store_true", help="Save previews to disk")
     parser.add_argument("--preview-dir", default="outputs/previews", help="Where to save previews if enabled")
     parser.add_argument("--max", type=int, default=0, help="Process at most N images (0 = no limit)")
+    parser.add_argument("--csv", default="outputs/results.csv", help="Where to write results CSV")
+    parser.add_argument("--top", type=int, default=0, help="If > 0, only write top N rows to CSV")
+
     args = parser.parse_args()
 
     in_dir = Path(args.input)
     preview_dir = Path(args.preview_dir)
 
     count = 0
+    rows = [] # for csv with results
     for img, meta in scan_folder_downsample(in_dir, long_edge=args.long_edge):
         count += 1
 
@@ -129,6 +134,21 @@ if __name__ == "__main__":
             f"blur={blur:.2f} exp={exp:.2f} overall={overall:.2f} "
             f"{' '.join(tags)}"
         )
+        
+        rows.append({
+            "path": str(meta.path),
+            "filename": meta.path.name,
+            "orig_w": meta.original_size[0],
+            "orig_h": meta.original_size[1],
+            "prev_w": meta.resized_size[0],
+            "prev_h": meta.resized_size[1],
+            "blur_raw": round(raw_blur, 2),
+            "blur": round(blur, 4),
+            "exp": round(exp, 4),
+            "overall": round(overall, 4),
+            "tags": " ".join(tags),
+          })
+
         #SAVE PREVIEW   doesnt always happen
         if args.save_previews:
             rel = meta.path.relative_to(in_dir)
@@ -138,3 +158,20 @@ if __name__ == "__main__":
         if args.max and count >= args.max:
             break
     print(f"Done. Processed {count} images.")
+    
+    # Sort highest overall first
+    rows.sort(key=lambda r: r["overall"], reverse=True)
+    out_csv = Path(args.csv)
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = list(rows[0].keys()) if rows else [
+        "path", "filename", "orig_w", "orig_h", "prev_w", "prev_h",
+        "blur_raw", "blur", "exp", "overall", "tags"
+    ]
+    with out_csv.open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w.writeheader()
+        for r in rows:
+            w.writerow(r)
+
+    print(f"Wrote CSV: {out_csv} ({len(rows)} rows)")
+
