@@ -8,6 +8,7 @@ from PIL import Image, ImageOps
 from exposure import exposure_score
 from blur import blur_score_laplacian, normalize_blur
 import csv 
+from faces import face_count
 
 
 VALID_EXTS = {".jpg", ".jpeg"}
@@ -121,11 +122,17 @@ if __name__ == "__main__":
         # EXPOSURE
         exp, exp_tags = exposure_score(img)
 
+
         # TAGS  for images with issues
         tags = []
         if blur < 0.15:
             tags.append("BLURRY")
         tags.extend(exp_tags)
+        #FACE COUNT
+        faces = face_count(img)
+        if faces > 0:
+            tags.append(f"FACES_{faces}")
+
 
         # OVERALL SCORE
         overall = 0.55 * blur + 0.45 * exp
@@ -146,6 +153,7 @@ if __name__ == "__main__":
             "blur": round(blur, 4),
             "exp": round(exp, 4),
             "overall": round(overall, 4),
+            "faces": faces,
             "tags": " ".join(tags),
           })
 
