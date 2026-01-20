@@ -1,46 +1,22 @@
-from __future__ import annotations
-from dataclasses import dataclass
-from typing import List, Tuple
+import cv2
 import numpy as np
 from PIL import Image
 
-import mediapipe as mp
+_CASCADE_PATH = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+_FACE_CASCADE = cv2.CascadeClassifier(_CASCADE_PATH)
 
-@dataclass(frozen=True)
-class FaceDet:
-    score: float
-    bbox: Tuple[int, int, int, int]  # x, y, w, h in pixels
+def face_count(pil_img: Image.Image) -> int:
+    """
+    Returns number of detected faces using Haar cascades.
+    Works best on downsampled previews (like 768px long edge).
+    """
+    arr = np.array(pil_img)  # RGB
+    gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
 
-_detector = None
-
-def _get_detector():
-    global _detector
-    if _detector is None:
-        _detector = mp.solutions.face_detection.FaceDetection(
-            model_selection=1,
-            min_detection_confidence=0.5
-        )
-    return _detector
-
-def detect_faces(pil_img: Image.Image) -> List[FaceDet]:
-    rgb = np.asarray(pil_img)
-    det = _get_detector()
-    result = det.process(rgb)
-
-    dets: List[FaceDet] = []
-    if not result.detections:
-        return dets
-
-    h, w = rgb.shape[:2]
-    for d in result.detections:
-        score = float(d.score[0]) if d.score else 0.0
-        rb = d.location_data.relative_bounding_box
-        x = max(0, int(rb.xmin * w))
-        y = max(0, int(rb.ymin * h))
-        bw = max(1, int(rb.width * w))
-        bh = max(1, int(rb.height * h))
-        dets.append(FaceDet(score=score, bbox=(x, y, bw, bh)))
-    return dets
-
-def face_count(pil_img: Image.Image, min_score: float = 0.6) -> int:
-    return sum(1 for d in detect_faces(pil_img) if d.score >= min_score)
+    faces = _FACE_CASCADE.detectMultiScale(
+        gray,
+        scaleFactor=1.1,
+        minNeighbors=5,
+        minSize=(30, 30),
+    )
+    return int(len(faces))
